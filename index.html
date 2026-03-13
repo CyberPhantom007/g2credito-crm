@@ -472,6 +472,11 @@ const STATUS_LABEL = {
 auth.onAuthStateChanged(user => {
   if (user) {
     userId = user.uid;
+    // Limpa campos de login assim que acesso é concedido
+    document.getElementById('login-email').value = '';
+    document.getElementById('login-senha').value = '';
+    document.getElementById('login-error').textContent = '';
+    document.getElementById('login-spinner').style.display = 'none';
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('app-screen').style.display   = 'block';
     iniciarListenerLeads();
@@ -509,6 +514,11 @@ function fazerLogout() {
   auth.signOut();
   leads = [];
   selectedId = null;
+  // Limpa campos ao sair — ninguém entra sem digitar novamente
+  document.getElementById('login-email').value = '';
+  document.getElementById('login-senha').value = '';
+  document.getElementById('login-error').textContent = '';
+  document.getElementById('login-spinner').style.display = 'none';
 }
 
 // ════════════════════════════════════════
