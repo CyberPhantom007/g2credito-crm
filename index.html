@@ -1,0 +1,980 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>G2 Crédito — Inside Sales CRM</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<!-- ══════════════════════════════════════
+     FIREBASE SDK (v9 compat — via CDN)
+     Substitua os valores abaixo pelas
+     suas credenciais do Firebase Console
+══════════════════════════════════════ -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+
+<style>
+/* ════════════════════════════════════════
+   VARIÁVEIS DE COR E RESET
+════════════════════════════════════════ */
+:root {
+  --bg:           #f0f4ff;
+  --white:        #ffffff;
+  --navy:         #0a1628;
+  --blue:         #1a56ff;
+  --blue-light:   #e8eeff;
+  --green:        #00b87a;
+  --green-light:  #e6f9f3;
+  --orange:       #ff6b2b;
+  --orange-light: #fff0eb;
+  --yellow:       #f5a623;
+  --red:          #e53e3e;
+  --text:         #1a2332;
+  --muted:        #6b7a99;
+  --border:       #dde3f0;
+  --shadow:       0 2px 12px rgba(10,22,40,0.08);
+  --shadow-lg:    0 8px 32px rgba(10,22,40,0.14);
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Plus Jakarta Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+/* ════════════════════════════════════════
+   TELA DE LOGIN
+════════════════════════════════════════ */
+#login-screen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: var(--navy);
+}
+.login-box {
+  background: var(--white);
+  border-radius: 16px;
+  padding: 40px 36px;
+  width: 360px;
+  box-shadow: var(--shadow-lg);
+}
+.login-logo {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--navy);
+  margin-bottom: 6px;
+  letter-spacing: -0.03em;
+}
+.login-logo span { color: var(--blue); }
+.login-sub {
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 28px;
+}
+.login-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 14px;
+}
+.login-field label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+.login-field input {
+  padding: 10px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--text);
+  transition: border-color 0.2s;
+}
+.login-field input:focus { outline: none; border-color: var(--blue); }
+.btn-login {
+  width: 100%;
+  background: var(--navy);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  margin-top: 6px;
+  transition: opacity 0.2s;
+}
+.btn-login:hover { opacity: 0.85; }
+.login-error {
+  font-size: 12px;
+  color: var(--red);
+  margin-top: 10px;
+  text-align: center;
+  min-height: 18px;
+}
+.login-spinner {
+  display: none;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+  margin-top: 10px;
+}
+
+/* ════════════════════════════════════════
+   APP (oculto até login)
+════════════════════════════════════════ */
+#app-screen { display: none; }
+
+/* ── HEADER ── */
+.header {
+  background: var(--navy);
+  padding: 0 32px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.brand { display: flex; align-items: center; gap: 10px; color: #fff; font-weight: 800; font-size: 17px; letter-spacing: -0.02em; }
+.brand-badge { background: var(--blue); color: #fff; font-size: 9px; font-weight: 700; padding: 2px 7px; border-radius: 20px; letter-spacing: 0.08em; text-transform: uppercase; }
+.header-right { display: flex; align-items: center; gap: 20px; }
+.header-stats { display: flex; gap: 24px; }
+.hstat { display: flex; flex-direction: column; align-items: flex-end; }
+.hstat-val { font-size: 16px; font-weight: 800; color: #fff; font-family: 'JetBrains Mono', monospace; }
+.hstat-lab { font-size: 10px; color: rgba(255,255,255,0.45); text-transform: uppercase; letter-spacing: 0.07em; }
+.btn-logout { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.7); border: 1px solid rgba(255,255,255,0.15); border-radius: 7px; padding: 6px 12px; font-size: 11px; font-weight: 600; cursor: pointer; font-family: inherit; transition: all 0.2s; }
+.btn-logout:hover { background: rgba(255,255,255,0.2); color: #fff; }
+
+/* ── LAYOUT ── */
+.app {
+  display: grid;
+  grid-template-columns: 380px 1fr;
+  height: calc(100vh - 60px);
+}
+
+/* ── LEFT PANEL ── */
+.left { background: var(--white); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; }
+.panel-head { padding: 18px 20px 14px; border-bottom: 1px solid var(--border); flex-shrink: 0; overflow-y: auto; max-height: 72vh; }
+.panel-title { font-size: 13px; font-weight: 700; color: var(--text); letter-spacing: -0.01em; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; }
+
+/* ── IMPORT AREA ── */
+.import-area { border: 2px dashed var(--border); border-radius: 10px; padding: 14px; text-align: center; cursor: pointer; transition: all 0.2s; background: var(--bg); margin-bottom: 10px; }
+.import-area:hover { border-color: var(--blue); background: var(--blue-light); }
+.import-area p { font-size: 12px; color: var(--muted); margin-top: 4px; }
+.btn-import { background: var(--blue); color: #fff; border: none; border-radius: 7px; padding: 7px 14px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: inherit; transition: opacity 0.2s; }
+.btn-import:hover { opacity: 0.85; }
+
+/* ── QUICK FORM ── */
+.quick-form { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.qf-input { padding: 8px 10px; border: 1px solid var(--border); border-radius: 7px; font-size: 12px; font-family: inherit; color: var(--text); background: var(--bg); transition: border-color 0.2s; }
+.qf-input:focus { outline: none; border-color: var(--blue); }
+.qf-input.full { grid-column: span 2; }
+.btn-add { grid-column: span 2; background: var(--navy); color: #fff; border: none; border-radius: 7px; padding: 9px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: inherit; transition: opacity 0.2s; }
+.btn-add:hover { opacity: 0.85; }
+
+/* ── LEAD LIST ── */
+.lead-list { overflow-y: auto; flex: 1; padding: 10px; display: flex; flex-direction: column; gap: 6px; }
+.lead-list::-webkit-scrollbar { width: 4px; }
+.lead-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+.lead-card { padding: 11px 13px; border-radius: 9px; border: 1.5px solid var(--border); cursor: pointer; transition: all 0.18s; position: relative; }
+.lead-card:hover { border-color: var(--blue); box-shadow: var(--shadow); }
+.lead-card.active { border-color: var(--blue); background: var(--blue-light); box-shadow: var(--shadow); }
+.lead-name { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 3px; }
+.lead-meta { font-size: 11px; color: var(--muted); display: flex; gap: 8px; flex-wrap: wrap; }
+.lead-status { position: absolute; top: 10px; right: 10px; width: 8px; height: 8px; border-radius: 50%; }
+.s-novo { background: var(--blue); }
+.s-contatado { background: var(--yellow); }
+.s-interessado { background: var(--green); }
+.s-fechado { background: var(--navy); }
+.s-perdido { background: var(--red); }
+
+/* ── RIGHT PANEL ── */
+.right { display: flex; flex-direction: column; overflow: hidden; }
+.right-top { background: var(--white); border-bottom: 1px solid var(--border); padding: 16px 24px; flex-shrink: 0; }
+.tabs { display: flex; gap: 4px; }
+.tab { padding: 7px 16px; border-radius: 7px; font-size: 12px; font-weight: 600; cursor: pointer; border: none; background: transparent; color: var(--muted); font-family: inherit; transition: all 0.18s; }
+.tab.active { background: var(--navy); color: #fff; }
+.tab:hover:not(.active) { background: var(--bg); color: var(--text); }
+.content-area { flex: 1; overflow-y: auto; padding: 20px 24px; }
+.content-area::-webkit-scrollbar { width: 4px; }
+.content-area::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+.view { display: none; }
+.view.active { display: block; }
+
+/* ── LEAD DETAIL ── */
+.lead-detail-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 20px; }
+.lead-avatar { width: 52px; height: 52px; border-radius: 50%; background: var(--navy); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 800; flex-shrink: 0; }
+.lead-info { flex: 1; margin-left: 14px; }
+.lead-info h2 { font-size: 18px; font-weight: 800; letter-spacing: -0.02em; }
+.lead-info p { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.status-select { padding: 6px 10px; border-radius: 7px; border: 1.5px solid var(--border); font-size: 12px; font-weight: 600; font-family: inherit; cursor: pointer; background: var(--white); }
+.info-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
+.info-box { background: var(--bg); border-radius: 9px; padding: 12px 14px; border: 1px solid var(--border); }
+.info-box label { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.07em; display: block; margin-bottom: 4px; }
+.info-box span { font-size: 14px; font-weight: 700; color: var(--text); font-family: 'JetBrains Mono', monospace; }
+.info-box.highlight { background: var(--green-light); border-color: var(--green); }
+.info-box.highlight span { color: var(--green); }
+
+/* ── WHATSAPP MESSAGES ── */
+.msg-section { margin-bottom: 20px; }
+.msg-section-title { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+.msg-card { background: var(--white); border: 1.5px solid var(--border); border-radius: 10px; padding: 14px 16px; margin-bottom: 8px; transition: border-color 0.2s; }
+.msg-card:hover { border-color: var(--green); }
+.msg-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; padding: 3px 8px; border-radius: 20px; display: inline-block; }
+.msg-label.abordagem  { background: var(--blue-light);   color: var(--blue); }
+.msg-label.followup   { background: var(--orange-light); color: var(--orange); }
+.msg-label.fechamento { background: var(--green-light);  color: var(--green); }
+.msg-text { font-size: 13px; line-height: 1.65; color: var(--text); white-space: pre-wrap; background: #f8fafb; border-radius: 7px; padding: 10px 12px; border: 1px solid var(--border); font-family: inherit; width: 100%; min-height: 130px; resize: vertical; outline: none; transition: border-color 0.2s, box-shadow 0.2s; display: block; box-sizing: border-box; }
+.msg-text:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(26,86,255,0.08); background: #fff; }
+.msg-edit-hint { font-size: 10px; color: var(--muted); margin-bottom: 5px; display: flex; align-items: center; gap: 4px; }
+.msg-actions { display: flex; gap: 8px; margin-top: 10px; }
+.btn-wa { display: flex; align-items: center; gap: 6px; background: #25D366; color: #fff; border: none; border-radius: 7px; padding: 8px 14px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: inherit; transition: opacity 0.2s; }
+.btn-wa:hover { opacity: 0.85; }
+.btn-copy { display: flex; align-items: center; gap: 6px; background: var(--bg); color: var(--text); border: 1.5px solid var(--border); border-radius: 7px; padding: 8px 14px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: inherit; transition: all 0.2s; }
+.btn-copy:hover { border-color: var(--text); }
+.btn-reset { display: flex; align-items: center; gap: 6px; background: var(--bg); color: var(--muted); border: 1.5px solid var(--border); border-radius: 7px; padding: 8px 12px; font-size: 11px; font-weight: 700; cursor: pointer; font-family: inherit; transition: all 0.2s; }
+.btn-reset:hover { border-color: var(--orange); color: var(--orange); }
+
+/* ── FUNIL ── */
+.funil { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+.funil-col { background: var(--white); border-radius: 10px; border: 1.5px solid var(--border); overflow: hidden; }
+.funil-head { padding: 10px 12px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; display: flex; align-items: center; justify-content: space-between; }
+.funil-head.novo        { background: var(--blue-light);  color: var(--blue); }
+.funil-head.contatado   { background: #fff8e6;             color: var(--yellow); }
+.funil-head.interessado { background: var(--green-light);  color: var(--green); }
+.funil-head.fechado     { background: var(--navy);         color: #fff; }
+.funil-head.perdido     { background: #fee;                color: var(--red); }
+.funil-count { background: rgba(0,0,0,0.1); border-radius: 20px; padding: 1px 7px; font-family: 'JetBrains Mono', monospace; }
+.funil-body { padding: 8px; display: flex; flex-direction: column; gap: 6px; min-height: 200px; }
+.funil-item { background: var(--bg); border-radius: 7px; padding: 9px 10px; font-size: 11px; cursor: pointer; border: 1px solid var(--border); transition: all 0.18s; }
+.funil-item:hover { border-color: var(--blue); background: var(--blue-light); }
+.funil-item strong { display: block; font-size: 12px; margin-bottom: 2px; }
+.funil-item span { color: var(--muted); }
+
+/* ── SCRIPTS ── */
+.scripts-grid { display: flex; flex-direction: column; gap: 14px; }
+.script-card { background: var(--white); border-radius: 10px; border: 1.5px solid var(--border); overflow: hidden; }
+.script-head { padding: 12px 16px; background: var(--navy); color: #fff; font-size: 13px; font-weight: 700; }
+.script-body { padding: 14px 16px; }
+.script-step { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.script-step:last-child { border: none; }
+.step-num { width: 24px; height: 24px; background: var(--blue); color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; flex-shrink: 0; margin-top: 1px; }
+.step-content strong { display: block; font-size: 12px; font-weight: 700; margin-bottom: 3px; }
+.step-content p { font-size: 12px; color: var(--muted); line-height: 1.55; }
+
+/* ── MÉTRICAS ── */
+.metrics-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+.metric-card { background: var(--white); border-radius: 10px; border: 1.5px solid var(--border); padding: 16px; }
+.metric-card label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); display: block; margin-bottom: 6px; }
+.metric-card .val { font-size: 28px; font-weight: 800; font-family: 'JetBrains Mono', monospace; letter-spacing: -0.03em; }
+.metric-card .val.blue   { color: var(--blue); }
+.metric-card .val.green  { color: var(--green); }
+.metric-card .val.orange { color: var(--orange); }
+.metric-card .val.navy   { color: var(--navy); }
+.metric-sub { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+/* ── EMPTY ── */
+.empty { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 300px; color: var(--muted); gap: 10px; }
+.empty .icon { font-size: 40px; }
+.empty p { font-size: 13px; text-align: center; }
+
+/* ── TOAST ── */
+.toast { position: fixed; bottom: 24px; right: 24px; background: var(--navy); color: #fff; padding: 12px 18px; border-radius: 9px; font-size: 13px; font-weight: 600; box-shadow: var(--shadow-lg); transform: translateY(80px); opacity: 0; transition: all 0.3s; z-index: 999; }
+.toast.show { transform: translateY(0); opacity: 1; }
+
+/* ── LOADING OVERLAY ── */
+.loading-overlay { position: fixed; inset: 0; background: rgba(10,22,40,0.5); display: flex; align-items: center; justify-content: center; z-index: 9999; display: none; }
+.loading-box { background: #fff; border-radius: 12px; padding: 24px 32px; text-align: center; font-size: 14px; color: var(--text); font-weight: 600; }
+.spinner { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--blue); border-radius: 50%; animation: spin 0.7s linear infinite; margin: 0 auto 12px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── RESPONSIVE ── */
+@media (max-width: 900px) {
+  .app { grid-template-columns: 1fr; }
+  .left { height: auto; max-height: 40vh; }
+  .funil { grid-template-columns: repeat(2, 1fr); }
+  .metrics-grid { grid-template-columns: repeat(2, 1fr); }
+  .info-grid { grid-template-columns: repeat(2, 1fr); }
+  .header { padding: 0 16px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════
+     TELA DE LOGIN
+══════════════════════════════════════ -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">G2 <span>Crédito</span></div>
+    <div class="login-sub">CRM Inside Sales — faça login para continuar</div>
+
+    <div class="login-field">
+      <label>E-mail</label>
+      <input type="email" id="login-email" placeholder="seu@email.com" />
+    </div>
+    <div class="login-field">
+      <label>Senha</label>
+      <input type="password" id="login-senha" placeholder="••••••••"
+        onkeydown="if(event.key==='Enter') fazerLogin()" />
+    </div>
+
+    <button class="btn-login" onclick="fazerLogin()">Entrar</button>
+    <div class="login-error" id="login-error"></div>
+    <div class="login-spinner" id="login-spinner">Entrando...</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     APP PRINCIPAL (visível após login)
+══════════════════════════════════════ -->
+<div id="app-screen">
+
+  <header class="header">
+    <div class="brand">💼 G2 Crédito <span class="brand-badge">Inside Sales</span></div>
+    <div class="header-right">
+      <div class="header-stats">
+        <div class="hstat"><div class="hstat-val" id="h-leads">0</div><div class="hstat-lab">Leads</div></div>
+        <div class="hstat"><div class="hstat-val" id="h-hoje">0</div><div class="hstat-lab">Contatados</div></div>
+        <div class="hstat"><div class="hstat-val" id="h-fechados">0</div><div class="hstat-lab">Fechados</div></div>
+      </div>
+      <button class="btn-logout" onclick="fazerLogout()">Sair</button>
+    </div>
+  </header>
+
+  <div class="app">
+
+    <!-- PAINEL ESQUERDO -->
+    <div class="left">
+      <div class="panel-head">
+        <div class="panel-title">
+          Leads — Servidores SP
+          <span style="font-family:'JetBrains Mono';font-size:11px;color:var(--blue)" id="lead-count">0 leads</span>
+        </div>
+
+        <!-- IMPORTAR CSV -->
+        <div class="import-area" onclick="document.getElementById('csv-input').click()">
+          <div style="font-size:22px">📋</div>
+          <p style="font-weight:700;color:var(--text);margin-bottom:4px">Importar planilha (.csv)</p>
+          <p style="font-size:11px;line-height:1.6;color:var(--muted)">
+            Colunas obrigatórias <strong>nessa ordem</strong>, separadas por <strong>vírgula</strong>:<br>
+            <code style="background:var(--blue-light);color:var(--blue);padding:2px 6px;border-radius:4px;font-size:10px">
+              NOME, WHATSAPP, ORGAO, CPF, CARGO, MARGEM
+            </code>
+          </p>
+          <br>
+          <button class="btn-import">Selecionar arquivo CSV</button>
+        </div>
+        <input type="file" id="csv-input" accept=".csv" style="display:none" onchange="importCSV(this)">
+
+        <!-- FORMULÁRIO MANUAL -->
+        <div class="quick-form">
+          <input class="qf-input full" id="q-nome"   placeholder="Nome completo *" />
+          <input class="qf-input"      id="q-tel"    placeholder="WhatsApp ex: 11987654321 *" />
+          <input class="qf-input"      id="q-orgao"  placeholder="Órgão / Secretaria" />
+          <input class="qf-input"      id="q-cpf"    placeholder="CPF (somente números)" />
+          <input class="qf-input"      id="q-cargo"  placeholder="Cargo / Matrícula" />
+          <input class="qf-input"      id="q-margem" placeholder="Margem disponível R$" />
+          <button class="btn-add" onclick="addLead()">＋ Adicionar Lead</button>
+        </div>
+      </div>
+
+      <div class="lead-list" id="lead-list">
+        <div class="empty" style="height:150px">
+          <div class="icon">👥</div>
+          <p>Carregando leads...</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAINEL DIREITO -->
+    <div class="right">
+      <div class="right-top">
+        <div class="tabs">
+          <button class="tab active"  onclick="switchTab('lead')">👤 Lead & WhatsApp</button>
+          <button class="tab"         onclick="switchTab('funil')">📊 Funil</button>
+          <button class="tab"         onclick="switchTab('scripts')">📋 Scripts</button>
+          <button class="tab"         onclick="switchTab('metricas')">📈 Métricas</button>
+        </div>
+      </div>
+      <div class="content-area">
+        <div class="view active" id="view-lead">
+          <div class="empty" id="lead-empty">
+            <div class="icon">👆</div>
+            <p>Selecione um lead à esquerda<br>para ver os detalhes e mensagens</p>
+          </div>
+          <div id="lead-detail" style="display:none"></div>
+        </div>
+        <div class="view" id="view-funil"><div class="funil" id="funil-board"></div></div>
+        <div class="view" id="view-scripts"><div class="scripts-grid" id="scripts-content"></div></div>
+        <div class="view" id="view-metricas">
+          <div class="metrics-grid" id="metrics-content"></div>
+          <div id="metrics-extra"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Loading overlay -->
+<div class="loading-overlay" id="loading">
+  <div class="loading-box">
+    <div class="spinner"></div>
+    Salvando no Firebase...
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- ══════════════════════════════════════
+     JAVASCRIPT
+══════════════════════════════════════ -->
+<script>
+// ════════════════════════════════════════
+// 🔥 CONFIGURAÇÃO DO FIREBASE
+// ⚠️  SUBSTITUA OS VALORES ABAIXO
+//     pelas suas credenciais do Firebase
+//     (veja o Guia de Configuração)
+// ════════════════════════════════════════
+const firebaseConfig = {
+  apiKey:            "AIzaSyDI4XfiTZCCXYE_gpi656P34ou8TucD8Xw",
+  authDomain:        "g2credito-crm.firebaseapp.com",
+  projectId:         "g2credito-crm",
+  storageBucket:     "g2credito-crm.firebasestorage.app",
+  messagingSenderId: "474216639183",
+  appId:             "1:474216639183:web:a210bf35eff1b511d765ba"
+};
+
+// Inicializa Firebase
+firebase.initializeApp(firebaseConfig);
+const db   = firebase.firestore();
+const auth = firebase.auth();
+
+// ════════════════════════════════════════
+// ESTADO DO APP
+// ════════════════════════════════════════
+let leads      = [];
+let selectedId = null;
+let userId     = null;       // ID do usuário logado
+let unsubscribe = null;      // Listener do Firestore (para desconectar ao sair)
+
+const STATUS = ['novo', 'contatado', 'interessado', 'fechado', 'perdido'];
+const STATUS_LABEL = {
+  novo: 'Novo', contatado: 'Contatado', interessado: 'Interessado',
+  fechado: 'Fechado ✅', perdido: 'Perdido ❌'
+};
+
+// ════════════════════════════════════════
+// AUTENTICAÇÃO
+// ════════════════════════════════════════
+auth.onAuthStateChanged(user => {
+  if (user) {
+    userId = user.uid;
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app-screen').style.display   = 'block';
+    iniciarListenerLeads();
+  } else {
+    userId = null;
+    if (unsubscribe) { unsubscribe(); unsubscribe = null; }
+    document.getElementById('login-screen').style.display = 'flex';
+    document.getElementById('app-screen').style.display   = 'none';
+  }
+});
+
+function fazerLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const senha = document.getElementById('login-senha').value;
+  const erro  = document.getElementById('login-error');
+  const spin  = document.getElementById('login-spinner');
+
+  if (!email || !senha) { erro.textContent = 'Preencha e-mail e senha.'; return; }
+
+  erro.textContent = '';
+  spin.style.display = 'block';
+
+  auth.signInWithEmailAndPassword(email, senha)
+    .catch(e => {
+      spin.style.display = 'none';
+      if (e.code === 'auth/user-not-found' || e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential') {
+        erro.textContent = 'E-mail ou senha incorretos.';
+      } else {
+        erro.textContent = 'Erro: ' + e.message;
+      }
+    });
+}
+
+function fazerLogout() {
+  auth.signOut();
+  leads = [];
+  selectedId = null;
+}
+
+// ════════════════════════════════════════
+// FIRESTORE — LISTENER EM TEMPO REAL
+// Atualiza a lista automaticamente
+// quando há mudanças no banco
+// ════════════════════════════════════════
+function iniciarListenerLeads() {
+  if (unsubscribe) unsubscribe();
+
+  // Cada usuário tem sua própria coleção de leads
+  const colRef = db.collection('users').doc(userId).collection('leads')
+                   .orderBy('criadoEm', 'desc');
+
+  unsubscribe = colRef.onSnapshot(snapshot => {
+    leads = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    renderLeads();
+    updateHeader();
+    // Re-renderiza o lead selecionado se ainda existir
+    if (selectedId && leads.find(l => l.id === selectedId)) {
+      renderLeadDetail();
+    }
+  }, err => {
+    toast('⚠️ Erro ao carregar leads: ' + err.message);
+  });
+}
+
+// ════════════════════════════════════════
+// CRUD DE LEADS (Firestore)
+// ════════════════════════════════════════
+
+// Adiciona lead no Firestore
+async function addLeadDB(leadData) {
+  mostrarLoading(true);
+  try {
+    await db.collection('users').doc(userId).collection('leads').add({
+      ...leadData,
+      criadoEm: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    toast('✅ Lead salvo no Firebase!');
+  } catch (e) {
+    toast('❌ Erro ao salvar: ' + e.message);
+  }
+  mostrarLoading(false);
+}
+
+// Atualiza campos de um lead
+async function updateLeadDB(id, campos) {
+  try {
+    await db.collection('users').doc(userId).collection('leads').doc(id).update(campos);
+  } catch (e) {
+    toast('❌ Erro ao atualizar: ' + e.message);
+  }
+}
+
+// Remove lead
+async function deleteLeadDB(id) {
+  mostrarLoading(true);
+  try {
+    await db.collection('users').doc(userId).collection('leads').doc(id).delete();
+    toast('Lead removido');
+  } catch (e) {
+    toast('❌ Erro ao remover: ' + e.message);
+  }
+  mostrarLoading(false);
+}
+
+// Importa múltiplos leads de uma vez (batch)
+async function importLeadsDB(novosLeads) {
+  mostrarLoading(true);
+  try {
+    const batch    = db.batch();
+    const colRef   = db.collection('users').doc(userId).collection('leads');
+    const ts       = firebase.firestore.FieldValue.serverTimestamp();
+    novosLeads.forEach(lead => {
+      batch.set(colRef.doc(), { ...lead, criadoEm: ts });
+    });
+    await batch.commit();
+    toast(`✅ ${novosLeads.length} leads importados no Firebase!`);
+  } catch (e) {
+    toast('❌ Erro ao importar: ' + e.message);
+  }
+  mostrarLoading(false);
+}
+
+// ════════════════════════════════════════
+// TEMPLATES DE MENSAGEM (localStorage)
+// ════════════════════════════════════════
+function getTemplateDefaults() {
+  return [
+    {
+      tipo: 'abordagem', label: '1ª Abordagem',
+      texto: `Olá {NOME}, tudo bem? 😊\n\nSou da equipe G2 Crédito, especialista em crédito consignado para servidores de SP.\n\nIdentificamos que você como servidor(a) de *{ÓRGÃO}* pode ter acesso a crédito com desconto direto em folha, com taxa a partir de *1,49% ao mês* — uma das menores do mercado.\n\nCom sua margem, você pode ter até *{MARGEM}* de crédito disponível, sem burocracia e sem comprometer sua renda.\n\nPosso te enviar uma simulação gratuita agora? 👇`
+    },
+    {
+      tipo: 'followup', label: '2º Follow-up (sem resposta)',
+      texto: `Oi {NOME}! 👋\n\nSó passando para saber se recebeu minha mensagem anterior.\n\nTemos uma condição especial para servidores de *{ÓRGÃO}* válida essa semana:\n\n✅ Taxa 1,49% ao mês\n✅ Prazo de até 60 meses\n✅ Sem consulta ao SPC/Serasa\n✅ Dinheiro na conta em 24h úteis\n\nMe diz: você prefere uma simulação agora ou posso te ligar em um horário melhor? ⏰`
+    },
+    {
+      tipo: 'fechamento', label: '3º Fechamento / Proposta',
+      texto: `{NOME}, separei sua proposta personalizada! 🎯\n\n*📋 SIMULAÇÃO EXCLUSIVA:*\n👤 Servidor(a): {NOME_COMPLETO}\n🏢 Órgão: {ÓRGÃO}\n💰 Valor disponível: {MARGEM}\n📅 Prazo: até 60 meses\n📊 Taxa: a partir de 1,49%/mês\n🔒 Desconto direto em folha\n\n*✨ Você não precisa sair de casa!* Tudo é feito online, o contrato é assinado digitalmente e o dinheiro cai na sua conta em até 1 dia útil.\n\nQuer avançar agora? É só me responder *"SIM"* que eu agilizo tudo! 🚀\n\nQualquer dúvida, pode perguntar à vontade 😊`
+    }
+  ];
+}
+
+function loadTemplates() {
+  const saved = localStorage.getItem('g2_templates');
+  if (saved) return JSON.parse(saved);
+  const d = getTemplateDefaults();
+  localStorage.setItem('g2_templates', JSON.stringify(d));
+  return d;
+}
+
+function saveTemplates(t) { localStorage.setItem('g2_templates', JSON.stringify(t)); }
+
+function applyLead(text, lead) {
+  if (!lead) return text;
+  const nome_curto = lead.nome.split(' ')[0];
+  const margem = lead.margem ? `R$ ${parseFloat(lead.margem).toLocaleString('pt-BR')}` : '(não informada)';
+  return text
+    .replace(/\{NOME\}/g, nome_curto)
+    .replace(/\{NOME_COMPLETO\}/g, lead.nome)
+    .replace(/\{ÓRGÃO\}/g, lead.orgao || '(não informado)')
+    .replace(/\{MARGEM\}/g, margem)
+    .replace(/\{CARGO\}/g, lead.cargo || '');
+}
+
+function gerarMensagens(lead) {
+  return loadTemplates().map(t => ({ tipo: t.tipo, label: t.label, texto: applyLead(t.texto, lead) }));
+}
+
+function saveEditedTemplate(tipo, texto) {
+  const templates = loadTemplates();
+  const t = templates.find(t => t.tipo === tipo);
+  if (t) { t.texto = texto; saveTemplates(templates); }
+}
+
+function resetTemplate(tipo) {
+  const defaults = getTemplateDefaults();
+  const d = defaults.find(d => d.tipo === tipo);
+  const templates = loadTemplates();
+  const t = templates.find(t => t.tipo === tipo);
+  if (t && d) { t.texto = d.texto; saveTemplates(templates); renderLeadDetail(); toast('↺ Mensagem restaurada'); }
+}
+
+// ════════════════════════════════════════
+// UTILITÁRIOS
+// ════════════════════════════════════════
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+function mostrarLoading(show) {
+  document.getElementById('loading').style.display = show ? 'flex' : 'none';
+}
+
+function initials(name) { return name.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase(); }
+function fmtPhone(p)    { return p.replace(/\D/g,''); }
+function fmtCPF(cpf)    {
+  const c = cpf.replace(/\D/g,'');
+  if (c.length !== 11) return cpf;
+  return c.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+}
+
+// ════════════════════════════════════════
+// RENDERIZAR LISTA DE LEADS
+// ════════════════════════════════════════
+function renderLeads() {
+  const list = document.getElementById('lead-list');
+  document.getElementById('lead-count').textContent = `${leads.length} lead${leads.length !== 1 ? 's' : ''}`;
+
+  if (leads.length === 0) {
+    list.innerHTML = `<div class="empty" style="height:150px"><div class="icon">👥</div><p>Adicione leads acima ou<br>importe sua planilha</p></div>`;
+    return;
+  }
+
+  list.innerHTML = leads.map(l => `
+    <div class="lead-card ${selectedId === l.id ? 'active' : ''}" onclick="selectLead('${l.id}')">
+      <div class="lead-status s-${l.status}"></div>
+      <div class="lead-name">${l.nome}</div>
+      <div class="lead-meta">
+        <span>${l.orgao || '—'}</span>
+        ${l.margem ? `<span style="color:var(--green);font-weight:600">R$ ${parseFloat(l.margem).toLocaleString('pt-BR')}</span>` : ''}
+        <span>${STATUS_LABEL[l.status]}</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ════════════════════════════════════════
+// SELECIONAR LEAD
+// ════════════════════════════════════════
+function selectLead(id) {
+  selectedId = id;
+  renderLeads();
+  renderLeadDetail();
+  switchTab('lead');
+}
+
+function renderLeadDetail() {
+  const lead   = leads.find(l => l.id === selectedId);
+  const empty  = document.getElementById('lead-empty');
+  const detail = document.getElementById('lead-detail');
+
+  if (!lead) { empty.style.display = 'flex'; detail.style.display = 'none'; return; }
+  empty.style.display = 'none'; detail.style.display = 'block';
+
+  const msgs  = gerarMensagens(lead);
+  const waNum = fmtPhone(lead.telefone);
+
+  detail.innerHTML = `
+    <div class="lead-detail-header">
+      <div class="lead-avatar">${initials(lead.nome)}</div>
+      <div class="lead-info">
+        <h2>${lead.nome}</h2>
+        <p>${lead.cargo || 'Cargo não informado'} · ${lead.orgao || 'Órgão não informado'}</p>
+      </div>
+      <select class="status-select" onchange="updateStatus('${lead.id}', this.value)">
+        ${STATUS.map(s => `<option value="${s}" ${lead.status === s ? 'selected' : ''}>${STATUS_LABEL[s]}</option>`).join('')}
+      </select>
+    </div>
+
+    <div class="info-grid">
+      <div class="info-box"><label>📱 WhatsApp</label><span style="font-size:12px">${lead.telefone || '—'}</span></div>
+      <div class="info-box"><label>🪪 CPF</label><span style="font-size:12px">${lead.cpf ? fmtCPF(lead.cpf) : '—'}</span></div>
+      <div class="info-box highlight"><label>✅ Margem Disponível</label><span>${lead.margem ? 'R$ ' + parseFloat(lead.margem).toLocaleString('pt-BR') : '—'}</span></div>
+      <div class="info-box"><label>🏢 Órgão</label><span style="font-size:11px">${lead.orgao || '—'}</span></div>
+      <div class="info-box"><label>📋 Cargo / Mat.</label><span style="font-size:11px">${lead.cargo || '—'}</span></div>
+      <div class="info-box"><label>📞 Contatos</label><span>${lead.contatos || 0}x</span></div>
+    </div>
+
+    <div class="msg-section">
+      <div class="msg-section-title">💬 Mensagens WhatsApp Prontas
+        <span style="font-weight:400;font-size:10px;color:var(--muted);text-transform:none;letter-spacing:0">— clique no texto para editar</span>
+      </div>
+      ${msgs.map((m, i) => `
+        <div class="msg-card">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+            <span class="msg-label ${m.tipo}">${m.label}</span>
+            <button class="btn-reset" onclick="resetTemplate('${m.tipo}')">↺ Restaurar padrão</button>
+          </div>
+          <div class="msg-edit-hint">✏️ Edite abaixo — alterações ficam salvas automaticamente</div>
+          <textarea class="msg-text" id="msg-text-${i}" oninput="saveEditedTemplate('${m.tipo}', this.value)">${m.texto}</textarea>
+          <div class="msg-actions">
+            <button class="btn-wa" onclick="openWhatsApp('${waNum}','msg-text-${i}','${lead.id}')">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M5.339 17.617l-.33 1.93c-.088.517.447 1.03.96.9l1.837-.49C8.882 20.501 10.409 21 12 21c4.97 0 9-4.03 9-9s-4.03-9-9-9-9 4.03-9 9c0 1.636.441 3.166 1.207 4.487l-.868 2.13z"/></svg>
+              Abrir WhatsApp
+            </button>
+            <button class="btn-copy" onclick="copyMsg('msg-text-${i}')">📋 Copiar</button>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+
+    <div style="display:flex;gap:8px;margin-top:4px">
+      <button onclick="deleteLead('${lead.id}')" style="padding:8px 14px;border:1.5px solid var(--red);background:transparent;color:var(--red);border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">🗑 Remover Lead</button>
+    </div>
+  `;
+}
+
+// ════════════════════════════════════════
+// AÇÕES
+// ════════════════════════════════════════
+function copyMsg(elId) {
+  const el = document.getElementById(elId);
+  navigator.clipboard.writeText(el.value).then(() => toast('✅ Mensagem copiada!'));
+}
+
+function openWhatsApp(num, elId, leadId) {
+  const text = document.getElementById(elId)?.value || '';
+  registraContato(leadId);
+  window.open(`https://wa.me/55${num}?text=${encodeURIComponent(text)}`, '_blank');
+}
+
+function registraContato(id) {
+  const lead = leads.find(l => l.id === id);
+  if (lead) updateLeadDB(id, { contatos: (lead.contatos || 0) + 1 });
+}
+
+async function updateStatus(id, status) {
+  await updateLeadDB(id, { status });
+  toast(`Status: ${STATUS_LABEL[status]}`);
+}
+
+async function deleteLead(id) {
+  if (!confirm('Remover este lead do Firebase?')) return;
+  selectedId = null;
+  document.getElementById('lead-empty').style.display  = 'flex';
+  document.getElementById('lead-detail').style.display = 'none';
+  await deleteLeadDB(id);
+}
+
+// ── Adicionar manualmente ──
+async function addLead() {
+  const nome = document.getElementById('q-nome').value.trim();
+  const tel  = document.getElementById('q-tel').value.trim();
+  if (!nome || !tel) { toast('⚠️ Nome e WhatsApp são obrigatórios'); return; }
+
+  const lead = {
+    nome,
+    telefone: tel.replace(/\D/g,''),
+    orgao:    document.getElementById('q-orgao').value.trim(),
+    cpf:      document.getElementById('q-cpf').value.replace(/\D/g,''),
+    cargo:    document.getElementById('q-cargo').value.trim(),
+    margem:   document.getElementById('q-margem').value.replace(/\D/g,''),
+    status:   'novo',
+    contatos: 0
+  };
+
+  await addLeadDB(lead);
+  ['q-nome','q-tel','q-orgao','q-cpf','q-cargo','q-margem'].forEach(id => document.getElementById(id).value = '');
+}
+
+// ── Importar CSV ──
+// Formato: NOME, WHATSAPP, ORGAO, CPF, CARGO, MARGEM (separado por vírgula)
+function importCSV(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    const lines = e.target.result.split('\n').filter(l => l.trim());
+    const novos = [];
+    let erros = 0;
+
+    lines.slice(1).forEach((line, idx) => {
+      const cols = line.split(',').map(c => c.trim().replace(/^"|"$/g,''));
+      if (!cols[0]) return;
+
+      const nome   = cols[0] || '';
+      const tel    = (cols[1] || '').replace(/\D/g,'');
+      const orgao  = cols[2] || '';
+      const cpf    = (cols[3] || '').replace(/\D/g,'');
+      const cargo  = cols[4] || '';
+      const margem = (cols[5] || '').replace(/\D/g,'');
+
+      if (tel.length < 10 || tel.length > 11) { erros++; return; }
+
+      novos.push({ nome, telefone: tel, orgao, cpf, cargo, margem, status: 'novo', contatos: 0 });
+    });
+
+    if (novos.length > 0) await importLeadsDB(novos);
+    if (erros > 0) toast(`✅ ${novos.length} importados · ⚠️ ${erros} ignorados (WhatsApp inválido)`);
+  };
+  reader.readAsText(file, 'UTF-8');
+  input.value = '';
+}
+
+// ════════════════════════════════════════
+// FUNIL
+// ════════════════════════════════════════
+function renderFunil() {
+  document.getElementById('funil-board').innerHTML = STATUS.map(s => {
+    const items = leads.filter(l => l.status === s);
+    return `
+      <div class="funil-col">
+        <div class="funil-head ${s}">${STATUS_LABEL[s]}<span class="funil-count">${items.length}</span></div>
+        <div class="funil-body">
+          ${items.length === 0 ? '<div style="text-align:center;color:var(--muted);font-size:11px;padding-top:20px">Vazio</div>' : ''}
+          ${items.map(l => `
+            <div class="funil-item" onclick="selectLead('${l.id}');switchTab('lead')">
+              <strong>${l.nome.split(' ').slice(0,2).join(' ')}</strong>
+              <span>${l.orgao || '—'}</span>
+              ${l.margem ? `<br><span style="color:var(--green);font-weight:700">R$ ${parseFloat(l.margem).toLocaleString('pt-BR')}</span>` : ''}
+            </div>
+          `).join('')}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// ════════════════════════════════════════
+// SCRIPTS
+// ════════════════════════════════════════
+function renderScripts() {
+  const cards = [
+    { title:'📞 Script de Abordagem — 1ª Mensagem', steps:[
+      ['Personalizar o nome','Sempre use o primeiro nome do servidor. Cria intimidade e aumenta resposta em até 30%.'],
+      ['Citar o órgão','Mencione onde ele trabalha. Mostra que você tem informação real e não é spam.'],
+      ['Destacar a margem','Informe o valor disponível — é o "gancho" mais forte da mensagem.'],
+      ['CTA simples','Faça uma única pergunta no final. Ex: "Posso enviar a simulação?" Evite múltiplas opções.'],
+    ]},
+    { title:'🔁 Script de Follow-up (sem resposta em 24h)', steps:[
+      ['Aguardar 24h','Nunca faça follow-up no mesmo dia. Dá espaço e evita bloqueio.'],
+      ['Mudar o gancho','Use urgência (validade), escassez (vagas) ou novo benefício no 2º contato.'],
+      ['Oferecer alternativa','Pergunte se prefere ligar ou texto. Facilita a resposta.'],
+      ['Máx 3 tentativas','Após 3 contatos sem resposta, mover para "Perdido" e focar nos próximos.'],
+    ]},
+    { title:'✅ Dicas de Escala — Como Vender Mais', steps:[
+      ['Lotes de 20 leads/dia','Trabalhe em blocos. 20 abordagens de manhã, follow-ups à tarde.'],
+      ['Template por órgão','Crie mensagens específicas para PM-SP, Sec. Educação, TJ-SP — converte muito mais.'],
+      ['WhatsApp Business','Use etiquetas (Novo, Interessado, Fechado) direto no app para não perder leads.'],
+      ['Priorize margem alta','Os maiores primeiro = comissão maior com o mesmo esforço.'],
+    ]},
+  ];
+
+  document.getElementById('scripts-content').innerHTML = cards.map(card => `
+    <div class="script-card">
+      <div class="script-head">${card.title}</div>
+      <div class="script-body">
+        ${card.steps.map((s,i) => `
+          <div class="script-step">
+            <div class="step-num">${i+1}</div>
+            <div class="step-content"><strong>${s[0]}</strong><p>${s[1]}</p></div>
+          </div>`).join('')}
+      </div>
+    </div>`).join('');
+}
+
+// ════════════════════════════════════════
+// MÉTRICAS
+// ════════════════════════════════════════
+function renderMetrics() {
+  const total        = leads.length;
+  const contatados   = leads.filter(l => l.contatos > 0).length;
+  const interessados = leads.filter(l => l.status === 'interessado').length;
+  const fechados     = leads.filter(l => l.status === 'fechado').length;
+  const margemTotal  = leads.filter(l=>l.margem).reduce((a,l) => a + parseFloat(l.margem||0), 0);
+  const conv         = total > 0 ? ((fechados/total)*100).toFixed(1) : 0;
+
+  document.getElementById('metrics-content').innerHTML = `
+    <div class="metric-card"><label>👥 Total de Leads</label><div class="val navy">${total}</div><div class="metric-sub">no Firebase</div></div>
+    <div class="metric-card"><label>📞 Contatados</label><div class="val blue">${contatados}</div><div class="metric-sub">${total ? ((contatados/total)*100).toFixed(0) : 0}% do total</div></div>
+    <div class="metric-card"><label>🤝 Interessados</label><div class="val orange">${interessados}</div><div class="metric-sub">aguardando fechamento</div></div>
+    <div class="metric-card"><label>✅ Fechados</label><div class="val green">${fechados}</div><div class="metric-sub">conv. ${conv}%</div></div>`;
+
+  document.getElementById('metrics-extra').innerHTML = `
+    <div style="background:var(--white);border-radius:10px;border:1.5px solid var(--border);padding:20px;margin-top:12px">
+      <div class="msg-section-title" style="margin-bottom:12px">💰 Potencial de Margem Total</div>
+      <div style="font-size:36px;font-weight:800;color:var(--green);font-family:'JetBrains Mono',monospace">
+        R$ ${margemTotal.toLocaleString('pt-BR',{minimumFractionDigits:0})}
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:16px">
+        ${STATUS.map(s => {
+          const n = leads.filter(l=>l.status===s).length;
+          const pct = total ? Math.round(n/total*100) : 0;
+          return `<div style="text-align:center;padding:10px;background:var(--bg);border-radius:8px;border:1px solid var(--border)">
+            <div style="font-size:18px;font-weight:800;font-family:'JetBrains Mono'">${n}</div>
+            <div style="font-size:9px;color:var(--muted);text-transform:uppercase">${STATUS_LABEL[s]}</div>
+            <div style="font-size:10px;color:var(--blue);font-weight:700">${pct}%</div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+}
+
+// ════════════════════════════════════════
+// NAVEGAÇÃO
+// ════════════════════════════════════════
+function switchTab(tab) {
+  const names = ['lead','funil','scripts','metricas'];
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', names[i] === tab));
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-'+tab).classList.add('active');
+  if (tab === 'funil')    renderFunil();
+  if (tab === 'scripts')  renderScripts();
+  if (tab === 'metricas') renderMetrics();
+}
+
+function updateHeader() {
+  document.getElementById('h-leads').textContent    = leads.length;
+  document.getElementById('h-hoje').textContent     = leads.filter(l=>l.contatos>0).length;
+  document.getElementById('h-fechados').textContent = leads.filter(l=>l.status==='fechado').length;
+}
+</script>
+</body>
+</html>
